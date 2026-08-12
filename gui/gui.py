@@ -24,6 +24,10 @@ def azione_ruota():
     operazione_scelta = "ruota"
     print("Operazione selezionata: Ruota pagine")
 
+
+
+from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
+
 def esegui():
     # Controlli di sicurezza prima di agire
     if operazione_scelta is None:
@@ -34,8 +38,29 @@ def esegui():
         messagebox.showwarning("Attenzione", "Aggiungi almeno un file PDF")
         return
 
-    # Per ora stampiamo solo, il prossimo passo sarà chiamare le tue funzioni core
-    print(f"Eseguo '{operazione_scelta}' su {len(file_selezionati)} file")
+    if operazione_scelta == "unisci":
+            # Chiediamo dove salvare il PDF risultante
+            percorso_output = filedialog.asksaveasfilename(
+                title="Salva PDF unito come",
+                defaultextension=".pdf",
+                filetypes=[("File PDF", "*.pdf")]
+            )
+
+            # Se l'utente chiude la finestra senza scegliere, percorso_output è una stringa vuota
+            if percorso_output == "":
+                return
+
+            # try/except: se qualcosa va storto (file corrotto, permessi, ecc.)
+            # non vogliamo che il programma crashi, ma mostrare un errore gestito
+            try:
+                merge_pdf(file_selezionati, percorso_output)
+                messagebox.showinfo("Completato", "PDF uniti con successo!")
+            except Exception as errore:
+                messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+
+    else:
+            # Le altre operazioni le colleghiamo nei prossimi passi
+        messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
 
 def aggiungi_file():

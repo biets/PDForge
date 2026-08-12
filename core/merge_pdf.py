@@ -1,6 +1,6 @@
 from pypdf import PdfReader, PdfWriter
 
-def unisci_pdf(lista_file, file_output):
+def merge_pdf(lista_file, file_output):
     """Unisce più file PDF in un unico file di output."""
     writer = PdfWriter()
 
@@ -17,5 +17,5 @@ def unisci_pdf(lista_file, file_output):
 
 if __name__ == "__main__":
     file_da_unire = ["test.pdf", "test2.pdf"]
-    unisci_pdf(file_da_unire, "risultato_unito.pdf")
+    merge_pdf(file_da_unire, "risultato_unito.pdf")
     print("PDF uniti con successo!")
