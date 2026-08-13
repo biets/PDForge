@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox  # messagebox per avvisi ed errori
+from pypdf import PdfReader
 
 file_selezionati = []
 operazione_scelta = None  # nessuna operazione selezionata all'avvio
@@ -27,6 +28,8 @@ def azione_ruota():
 
 
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
+from core.split_pdf import split_pdf
+from tkinter import filedialog, messagebox, simpledialog  # aggiungiamo simpledialog
 
 def esegui():
     # Controlli di sicurezza prima di agire
@@ -60,8 +63,54 @@ def esegui():
             except Exception as errore:
                 messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
 
+    elif operazione_scelta == "separa":   
+        if len(file_selezionati) > 1:
+            messagebox.showwarning("Attenzione", "Per separare, seleziona un solo file PDF")
+            return
+
+        percorso_file = file_selezionati[0]
+        totale_pagine = len(PdfReader(percorso_file).pages)
+
+        # Chiediamo quali pagine estrarre (vuoto = tutte)
+        testo_pagine = simpledialog.askstring(
+            "Seleziona pagine",
+            f"Il documento ha {totale_pagine} pagine.\nInserisci le pagine (es. 1,3,5-7) oppure lascia vuoto per tutte:"
+        )
+
+        # Se l'utente annulla il dialog, askstring ritorna None
+        if testo_pagine is None:
+            return
+
+        try:
+            if testo_pagine.strip() == "":
+                pagine = None  # nessun filtro, tutte le pagine
+            else:
+                pagine = analizza_pagine(testo_pagine, totale_pagine)
+
+            # Chiediamo la modalità solo se l'utente ha scelto pagine specifiche
+            modalita = "separato"
+            if pagine is not None:
+                un_file_solo = messagebox.askyesno(
+                    "Modalità",
+                    "Vuoi un unico file con le pagine selezionate?\n\nSì = un solo PDF\nNo = un file per ogni pagina"
+                )
+                modalita = "singolo" if un_file_solo else "separato"
+
+            cartella_output = filedialog.askdirectory(title="Scegli la cartella dove salvare")
+            if cartella_output == "":
+                return
+
+            split_pdf(percorso_file, cartella_output, pagine=pagine, modalita=modalita)
+            file_selezionati.clear()
+            aggiorna_lista_visiva()
+            messagebox.showinfo("Completato", "PDF separato con successo!")
+
+        except ValueError as errore:
+            messagebox.showerror("Errore", str(errore))
+        except Exception as errore:
+            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+
     else:
-            # Le altre operazioni le colleghiamo nei prossimi passi
         messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
 
@@ -96,7 +145,31 @@ def aggiorna_lista_visiva():
             label = ctk.CTkLabel(frame_lista, text=nome_file)
             label.pack(anchor="w", padx=10, pady=2)
 
+def analizza_pagine(testo, totale_pagine):
+    """Converte una stringa tipo '1,3,5-7' in una lista ordinata di numeri di pagina, senza duplicati."""
+    pagine = set()  # usiamo un set per evitare duplicati automaticamente
+
+    parti = testo.split(",")
+    for parte in parti:
+        parte = parte.strip()  # rimuove spazi accidentali
+        if "-" in parte:
+            inizio, fine = parte.split("-")
+            inizio = int(inizio.strip())
+            fine = int(fine.strip())
+            pagine.update(range(inizio, fine + 1))
+        else:
+            pagine.add(int(parte))
+
+    # Controllo di validità: le pagine devono esistere nel documento
+    for numero in pagine:
+        if numero < 1 or numero > totale_pagine:
+            raise ValueError(f"La pagina {numero} non esiste (il documento ha {totale_pagine} pagine)")
+
+    return sorted(pagine)
+
 def avvia_gui():
+    global frame_lista   # diciamo a Python: non creare una variabile locale, usa quella globale
+    
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
