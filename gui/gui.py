@@ -54,6 +54,8 @@ def esegui():
             # non vogliamo che il programma crashi, ma mostrare un errore gestito
             try:
                 merge_pdf(file_selezionati, percorso_output)
+                file_selezionati.clear()       # svuotiamo la lista dopo un merge riuscito
+                aggiorna_lista_visiva()        # aggiorniamo la GUI per riflettere la lista vuota
                 messagebox.showinfo("Completato", "PDF uniti con successo!")
             except Exception as errore:
                 messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
@@ -94,42 +96,46 @@ def aggiorna_lista_visiva():
             label = ctk.CTkLabel(frame_lista, text=nome_file)
             label.pack(anchor="w", padx=10, pady=2)
 
+def avvia_gui():
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+    app = ctk.CTk()
+    app.title("PDForge")
+    app.geometry("600x400")
 
-app = ctk.CTk()
-app.title("PDForge")
-app.geometry("600x400")
+    titolo = ctk.CTkLabel(app, text="Scegli un'operazione", font=("Arial", 16))
+    titolo.grid(row=0, column=0, columnspan=2, pady=(20, 10))
 
-titolo = ctk.CTkLabel(app, text="Scegli un'operazione", font=("Arial", 16))
-titolo.grid(row=0, column=0, columnspan=2, pady=(20, 10))
+    btn_unisci = ctk.CTkButton(app, text="Unisci PDF", command=azione_unisci, width=200, height=60)
+    btn_unisci.grid(row=1, column=0, padx=10, pady=10)
 
-btn_unisci = ctk.CTkButton(app, text="Unisci PDF", command=azione_unisci, width=200, height=60)
-btn_unisci.grid(row=1, column=0, padx=10, pady=10)
+    btn_separa = ctk.CTkButton(app, text="Separa PDF", command=azione_separa, width=200, height=60)
+    btn_separa.grid(row=1, column=1, padx=10, pady=10)
 
-btn_separa = ctk.CTkButton(app, text="Separa PDF", command=azione_separa, width=200, height=60)
-btn_separa.grid(row=1, column=1, padx=10, pady=10)
+    btn_comprimi = ctk.CTkButton(app, text="Comprimi PDF", command=azione_comprimi, width=200, height=60)
+    btn_comprimi.grid(row=2, column=0, padx=10, pady=10)
 
-btn_comprimi = ctk.CTkButton(app, text="Comprimi PDF", command=azione_comprimi, width=200, height=60)
-btn_comprimi.grid(row=2, column=0, padx=10, pady=10)
+    btn_ruota = ctk.CTkButton(app, text="Ruota pagine", command=azione_ruota, width=200, height=60)
+    btn_ruota.grid(row=2, column=1, padx=10, pady=10)
 
-btn_ruota = ctk.CTkButton(app, text="Ruota pagine", command=azione_ruota, width=200, height=60)
-btn_ruota.grid(row=2, column=1, padx=10, pady=10)
+    frame_lista = ctk.CTkFrame(app)
+    frame_lista.grid(row=3, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
 
-frame_lista = ctk.CTkFrame(app)
-frame_lista.grid(row=3, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
+    label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
+    label_placeholder.pack(anchor="w", padx=10, pady=(10, 10))
 
-label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
-label_placeholder.pack(anchor="w", padx=10, pady=(10, 10))
+    frame_azioni = ctk.CTkFrame(app, fg_color="transparent")
+    frame_azioni.grid(row=4, column=0, columnspan=2, pady=20)
 
-frame_azioni = ctk.CTkFrame(app, fg_color="transparent")
-frame_azioni.grid(row=4, column=0, columnspan=2, pady=20)
+    btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
+    btn_aggiungi.pack(side="left", padx=10)
 
-btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
-btn_aggiungi.pack(side="left", padx=10)
+    btn_esegui = ctk.CTkButton(frame_azioni, text="Esegui", width=150, command=esegui)
+    btn_esegui.pack(side="left", padx=10)
 
-btn_esegui = ctk.CTkButton(frame_azioni, text="Esegui", width=150, command=esegui)
-btn_esegui.pack(side="left", padx=10)
+    app.mainloop()
 
-app.mainloop()
+# è il pattern standard per far partire il programma solo se viene eseguito direttamente, e non se viene importato come modulo
+if __name__ == "__main__":
+    avvia_gui()
