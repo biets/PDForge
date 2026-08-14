@@ -140,22 +140,44 @@ def esegui():
         except Exception as errore:
             messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
     elif operazione_scelta == "ruota":
-        angolo = int(angolo_scelto.get())
+        if len(file_selezionati) > 1:
+            messagebox.showwarning("Attenzione", "Per ruotare, seleziona un solo file PDF")
+            return
 
-        cartella_output = filedialog.askdirectory(title="Scegli la cartella dove salvare i PDF ruotati")
-        if cartella_output == "":
+        percorso_file = file_selezionati[0]
+        angolo = int(angolo_scelto.get())
+        totale_pagine = len(PdfReader(percorso_file).pages)
+
+        # Chiediamo quali pagine ruotare (vuoto = tutte)
+        testo_pagine = simpledialog.askstring(
+            "Seleziona pagine",
+            f"Il documento ha {totale_pagine} pagine.\nInserisci le pagine da ruotare (es. 1,3,5-7) oppure lascia vuoto per tutte:"
+        )
+
+        if testo_pagine is None:
             return
 
         try:
-            for percorso_file in file_selezionati:
-                nome_file = percorso_file.split("/")[-1]
-                nome_output = nome_file.replace(".pdf", "_ruotato.pdf")
-                percorso_output = f"{cartella_output}/{nome_output}"
-                rotate_pdf(percorso_file, angolo, percorso_output)
+            if testo_pagine.strip() == "":
+                pagine = None
+            else:
+                pagine = analizza_pagine(testo_pagine, totale_pagine)
 
+            percorso_output = filedialog.asksaveasfilename(
+                title="Salva PDF ruotato come",
+                defaultextension=".pdf",
+                filetypes=[("File PDF", "*.pdf")]
+            )
+            if percorso_output == "":
+                return
+
+            rotate_pdf(percorso_file, angolo, percorso_output, pagine=pagine)
             file_selezionati.clear()
             aggiorna_lista_visiva()
-            messagebox.showinfo("Completato", "PDF ruotati con successo!")
+            messagebox.showinfo("Completato", "PDF ruotato con successo!")
+
+        except ValueError as errore:
+            messagebox.showerror("Errore", str(errore))
         except Exception as errore:
             messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
     else:
