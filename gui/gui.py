@@ -244,75 +244,93 @@ def aggiorna_qualita_e_label(valore, label):
     label.configure(text=f"Qualità compressione: {valore_qualita}")
 
 def avvia_gui():
-    global frame_lista, angolo_scelto # entrmabe vanno dichiarate global
+    global frame_lista, angolo_scelto
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
     app = ctk.CTk()
     app.title("PDForge")
-    app.geometry("600x400")
+    app.geometry("750x450")
 
-    # Ora che la finestra esiste, possiamo creare la StringVar
     angolo_scelto = ctk.StringVar(value="90")
 
-    # Pulsanti per le operazioni principali
+    # La finestra ha 2 colonne: sidebar fissa e area principale che si espande
+    app.grid_columnconfigure(0, weight=0)
+    app.grid_columnconfigure(1, weight=1)
+    app.grid_rowconfigure(0, weight=1)  # riga del contenuto si espande in verticale
+    app.grid_rowconfigure(1, weight=0)  # riga del footer resta fissa
 
-    titolo = ctk.CTkLabel(app, text="Scegli un'operazione", font=("Arial", 16))
-    titolo.grid(row=0, column=0, columnspan=2, pady=(20, 10))
+    # ------------------- SIDEBAR -------------------
+    sidebar_frame = ctk.CTkFrame(app, width=220, corner_radius=0)
+    sidebar_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 5), pady=0)
 
-    btn_unisci = ctk.CTkButton(app, text="Unisci PDF", command=azione_unisci, width=200, height=60)
-    btn_unisci.grid(row=1, column=0, padx=10, pady=10)
+    titolo = ctk.CTkLabel(sidebar_frame, text="PDForge", font=("Arial", 20, "bold"))
+    titolo.pack(pady=(20, 5), padx=20)
 
-    btn_separa = ctk.CTkButton(app, text="Separa PDF", command=azione_separa, width=200, height=60)
-    btn_separa.grid(row=1, column=1, padx=10, pady=10)
+    sottotitolo = ctk.CTkLabel(sidebar_frame, text="Scegli un'operazione", text_color="gray")
+    sottotitolo.pack(pady=(0, 15), padx=20)
 
-    btn_comprimi = ctk.CTkButton(app, text="Comprimi PDF", command=azione_comprimi, width=200, height=60)
-    btn_comprimi.grid(row=2, column=0, padx=10, pady=10)
+    btn_unisci = ctk.CTkButton(sidebar_frame, text="Unisci PDF", command=azione_unisci, width=180, height=45)
+    btn_unisci.pack(pady=6, padx=20)
 
-    btn_ruota = ctk.CTkButton(app, text="Ruota pagine", command=azione_ruota, width=200, height=60)
-    btn_ruota.grid(row=2, column=1, padx=10, pady=10)
+    btn_separa = ctk.CTkButton(sidebar_frame, text="Separa PDF", command=azione_separa, width=180, height=45)
+    btn_separa.pack(pady=6, padx=20)
 
-    #slider per la qualità della compressione
-    label_qualita = ctk.CTkLabel(app, text="Qualità compressione: 50")
-    label_qualita.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+    btn_comprimi = ctk.CTkButton(sidebar_frame, text="Comprimi PDF", command=azione_comprimi, width=180, height=45)
+    btn_comprimi.pack(pady=6, padx=20)
+
+    btn_ruota = ctk.CTkButton(sidebar_frame, text="Ruota pagine", command=azione_ruota, width=180, height=45)
+    btn_ruota.pack(pady=6, padx=20)
+
+    # Controlli di compressione/rotazione (per ora sempre visibili, li nascondiamo nello step 2)
+    label_qualita = ctk.CTkLabel(sidebar_frame, text="Qualità compressione: 50")
+    label_qualita.pack(pady=(20, 0), padx=20)
 
     slider_qualita = ctk.CTkSlider(
-        app,
+        sidebar_frame,
         from_=10,
         to=95,
         number_of_steps=17,
         command=lambda valore: aggiorna_qualita_e_label(valore, label_qualita)
     )
     slider_qualita.set(50)
-    slider_qualita.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew", padx=20)
+    slider_qualita.pack(pady=(5, 15), padx=20, fill="x")
 
-    # Etichetta e menu a tendina per la scelta dell'angolo di rotazione
-    label_angolo = ctk.CTkLabel(app, text="Angolo di rotazione:")
-    label_angolo.grid(row=5, column=0, pady=(10, 0), sticky="e")
+    label_angolo = ctk.CTkLabel(sidebar_frame, text="Angolo di rotazione:")
+    label_angolo.pack(pady=(0, 5), padx=20)
 
-    menu_angolo = ctk.CTkOptionMenu(
-        app,
-        values=["90", "180", "270"],
-        variable=angolo_scelto
-    )
-    menu_angolo.grid(row=5, column=1, pady=(10, 0), sticky="w")
+    menu_angolo = ctk.CTkOptionMenu(sidebar_frame, values=["90", "180", "270"], variable=angolo_scelto)
+    menu_angolo.pack(pady=(0, 20), padx=20)
 
+    # ------------------- AREA PRINCIPALE -------------------
+    main_frame = ctk.CTkFrame(app, fg_color="transparent")
+    main_frame.grid(row=0, column=1, sticky="nsew", padx=15, pady=15)
+    main_frame.grid_rowconfigure(1, weight=1)  # la lista file si espande
+    main_frame.grid_columnconfigure(0, weight=1)
 
-    frame_lista = ctk.CTkScrollableFrame(app, height=100)
-    frame_lista.grid(row=6, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
+    label_lista = ctk.CTkLabel(main_frame, text="File selezionati", font=("Arial", 14))
+    label_lista.grid(row=0, column=0, sticky="w", pady=(0, 10))
+
+    frame_lista = ctk.CTkScrollableFrame(main_frame)
+    frame_lista.grid(row=1, column=0, sticky="nsew")
 
     label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
     label_placeholder.pack(anchor="w", padx=10, pady=(10, 10))
 
-    frame_azioni = ctk.CTkFrame(app, fg_color="transparent")
-    frame_azioni.grid(row=7, column=0, columnspan=2, pady=20)
+    frame_azioni = ctk.CTkFrame(main_frame, fg_color="transparent")
+    frame_azioni.grid(row=2, column=0, pady=(15, 0))
 
     btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
     btn_aggiungi.pack(side="left", padx=10)
 
     btn_esegui = ctk.CTkButton(frame_azioni, text="Esegui", width=150, command=esegui)
     btn_esegui.pack(side="left", padx=10)
+
+    # ------------------- FOOTER -------------------
+    footer = ctk.CTkFrame(app, height=30, fg_color="transparent")
+    footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
+    # Il contenuto vero del footer lo aggiungiamo nello step 4
 
     app.mainloop()
 
