@@ -3,7 +3,8 @@ from tkinter import filedialog, messagebox  # messagebox per avvisi ed errori
 from pypdf import PdfReader
 
 file_selezionati = []
-operazione_scelta = None  # nessuna operazione selezionata all'avvio
+operazione_scelta = None
+valore_qualita = 50  # valore di default della compressione
 
 def azione_unisci():
     global operazione_scelta
@@ -29,6 +30,7 @@ def azione_ruota():
 
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
 from core.split_pdf import split_pdf
+from core.compress_pdf import compress_pdf
 from tkinter import filedialog, messagebox, simpledialog  # aggiungiamo simpledialog
 
 def esegui():
@@ -109,7 +111,30 @@ def esegui():
             messagebox.showerror("Errore", str(errore))
         except Exception as errore:
             messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+    elif operazione_scelta == "comprimi":
+        if len(file_selezionati) > 1:
+            messagebox.showwarning("Attenzione", "Per comprimere, seleziona un solo file PDF")
+            return
 
+        percorso_file = file_selezionati[0]
+
+        # Chiediamo dove salvare il PDF compresso
+        percorso_output = filedialog.asksaveasfilename(
+            title="Salva PDF compresso come",
+            defaultextension=".pdf",
+            filetypes=[("File PDF", "*.pdf")]
+        )
+
+        if percorso_output == "":
+            return
+
+        try:
+            compress_pdf(percorso_file, percorso_output, qualita=valore_qualita)
+            file_selezionati.clear()
+            aggiorna_lista_visiva()
+            messagebox.showinfo("Completato", "PDF compresso con successo!")
+        except Exception as errore:
+            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
     else:
         messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
@@ -167,9 +192,15 @@ def analizza_pagine(testo, totale_pagine):
 
     return sorted(pagine)
 
+def aggiorna_qualita_e_label(valore, label):
+    # aggiorna la variabile globale valore_qualita e il testo della label per la compressione
+    global valore_qualita
+    valore_qualita = int(valore)
+    label.configure(text=f"Qualità compressione: {valore_qualita}")
+
 def avvia_gui():
     global frame_lista   # diciamo a Python: non creare una variabile locale, usa quella globale
-    
+
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
@@ -192,14 +223,29 @@ def avvia_gui():
     btn_ruota = ctk.CTkButton(app, text="Ruota pagine", command=azione_ruota, width=200, height=60)
     btn_ruota.grid(row=2, column=1, padx=10, pady=10)
 
+    #slider per la qualità della compressione
+    label_qualita = ctk.CTkLabel(app, text="Qualità compressione: 50")
+    label_qualita.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+
+    slider_qualita = ctk.CTkSlider(
+        app,
+        from_=10,
+        to=95,
+        number_of_steps=17,
+        command=lambda valore: aggiorna_qualita_e_label(valore, label_qualita)
+    )
+    slider_qualita.set(50)
+    slider_qualita.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew", padx=20)
+
+
     frame_lista = ctk.CTkFrame(app)
-    frame_lista.grid(row=3, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
+    frame_lista.grid(row=5, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
 
     label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
     label_placeholder.pack(anchor="w", padx=10, pady=(10, 10))
 
     frame_azioni = ctk.CTkFrame(app, fg_color="transparent")
-    frame_azioni.grid(row=4, column=0, columnspan=2, pady=20)
+    frame_azioni.grid(row=6, column=0, columnspan=2, pady=20)
 
     btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
     btn_aggiungi.pack(side="left", padx=10)

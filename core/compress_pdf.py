@@ -4,7 +4,7 @@ from PIL import Image
 import io
 import os
 
-def comprimi_immagini_pdf(percorso_file, file_output, qualita=50):
+def compress_pdf(percorso_file, file_output, qualita=50):
     """Ricomprime le immagini incorporate in un PDF come JPEG a qualità ridotta."""
     pdf = pikepdf.open(percorso_file)
     immagini_processate = 0
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     percorso_input = "../tests_files/test.pdf"
     percorso_output = "../tests_files/test_compresso_immagini.pdf"
 
-    comprimi_immagini_pdf(percorso_input, percorso_output, qualita=50)
+    compress_pdf(percorso_input, percorso_output, qualita=50)
 
     dimensione_originale = os.path.getsize(percorso_input)
     dimensione_finale = os.path.getsize(percorso_output)
