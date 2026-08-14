@@ -5,6 +5,8 @@ from pypdf import PdfReader
 file_selezionati = []
 operazione_scelta = None
 valore_qualita = 50  # valore di default della compressione
+frame_controlli_qualita = None
+frame_controlli_angolo = None
 
 # Variabile per tenere traccia dell'angolo scelto (default 90°)
 angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la creazione della finestra
@@ -12,22 +14,33 @@ angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la
 def azione_unisci():
     global operazione_scelta
     operazione_scelta = "unisci"
+    nascondi_controlli_extra()
     print("Operazione selezionata: Unisci PDF")
 
 def azione_separa():
     global operazione_scelta
     operazione_scelta = "separa"
+    nascondi_controlli_extra()
     print("Operazione selezionata: Separa PDF")
 
 def azione_comprimi():
     global operazione_scelta
     operazione_scelta = "comprimi"
+    nascondi_controlli_extra()
+    frame_controlli_qualita.pack(pady=(20, 15), padx=20, fill="x")
     print("Operazione selezionata: Comprimi PDF")
 
 def azione_ruota():
     global operazione_scelta
     operazione_scelta = "ruota"
+    nascondi_controlli_extra()
+    frame_controlli_angolo.pack(pady=(20, 20), padx=20)
     print("Operazione selezionata: Ruota pagine")
+
+def nascondi_controlli_extra():
+    """Nasconde entrambi i blocchi di controlli extra (qualità e angolo)."""
+    frame_controlli_qualita.pack_forget()
+    frame_controlli_angolo.pack_forget()
 
 
 
@@ -244,7 +257,7 @@ def aggiorna_qualita_e_label(valore, label):
     label.configure(text=f"Qualità compressione: {valore_qualita}")
 
 def avvia_gui():
-    global frame_lista, angolo_scelto
+    global frame_lista, angolo_scelto, frame_controlli_qualita, frame_controlli_angolo
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
@@ -283,25 +296,32 @@ def avvia_gui():
     btn_ruota = ctk.CTkButton(sidebar_frame, text="Ruota pagine", command=azione_ruota, width=180, height=45)
     btn_ruota.pack(pady=6, padx=20)
 
-    # Controlli di compressione/rotazione (per ora sempre visibili, li nascondiamo nello step 2)
-    label_qualita = ctk.CTkLabel(sidebar_frame, text="Qualità compressione: 50")
-    label_qualita.pack(pady=(20, 0), padx=20)
+    # Blocco controlli qualità compressione (nascosto finché non scegli "Comprimi PDF")
+    frame_controlli_qualita = ctk.CTkFrame(sidebar_frame, fg_color="transparent")
+
+    label_qualita = ctk.CTkLabel(frame_controlli_qualita, text="Qualità compressione: 50")
+    label_qualita.pack(pady=(0, 0), padx=0)
 
     slider_qualita = ctk.CTkSlider(
-        sidebar_frame,
+        frame_controlli_qualita,
         from_=10,
         to=95,
         number_of_steps=17,
         command=lambda valore: aggiorna_qualita_e_label(valore, label_qualita)
     )
     slider_qualita.set(50)
-    slider_qualita.pack(pady=(5, 15), padx=20, fill="x")
+    slider_qualita.pack(pady=(5, 0), padx=0, fill="x")
 
-    label_angolo = ctk.CTkLabel(sidebar_frame, text="Angolo di rotazione:")
-    label_angolo.pack(pady=(0, 5), padx=20)
+    # Blocco controllo angolo rotazione (nascosto finché non scegli "Ruota pagine")
+    frame_controlli_angolo = ctk.CTkFrame(sidebar_frame, fg_color="transparent")
 
-    menu_angolo = ctk.CTkOptionMenu(sidebar_frame, values=["90", "180", "270"], variable=angolo_scelto)
-    menu_angolo.pack(pady=(0, 20), padx=20)
+    label_angolo = ctk.CTkLabel(frame_controlli_angolo, text="Angolo di rotazione:")
+    label_angolo.pack(pady=(0, 5), padx=0)
+
+    menu_angolo = ctk.CTkOptionMenu(frame_controlli_angolo, values=["90", "180", "270"], variable=angolo_scelto)
+    menu_angolo.pack(pady=(0, 0), padx=0)
+
+    # Nessuno dei due è "impacchettato" qui: appariranno solo quando scegli l'operazione giusta
 
     # ------------------- AREA PRINCIPALE -------------------
     main_frame = ctk.CTkFrame(app, fg_color="transparent")
