@@ -238,7 +238,7 @@ def avvia_gui():
     slider_qualita.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew", padx=20)
 
 
-    frame_lista = ctk.CTkFrame(app)
+    frame_lista = ctk.CTkScrollableFrame(app, height=100)
     frame_lista.grid(row=5, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
 
     label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
