@@ -6,6 +6,9 @@ file_selezionati = []
 operazione_scelta = None
 valore_qualita = 50  # valore di default della compressione
 
+# Variabile per tenere traccia dell'angolo scelto (default 90°)
+angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la creazione della finestra
+
 def azione_unisci():
     global operazione_scelta
     operazione_scelta = "unisci"
@@ -31,6 +34,7 @@ def azione_ruota():
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
 from core.split_pdf import split_pdf
 from core.compress_pdf import compress_pdf
+from core.rotate_pdf import rotate_pdf
 from tkinter import filedialog, messagebox, simpledialog  # aggiungiamo simpledialog
 
 def esegui():
@@ -135,6 +139,25 @@ def esegui():
             messagebox.showinfo("Completato", "PDF compresso con successo!")
         except Exception as errore:
             messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+    elif operazione_scelta == "ruota":
+        angolo = int(angolo_scelto.get())
+
+        cartella_output = filedialog.askdirectory(title="Scegli la cartella dove salvare i PDF ruotati")
+        if cartella_output == "":
+            return
+
+        try:
+            for percorso_file in file_selezionati:
+                nome_file = percorso_file.split("/")[-1]
+                nome_output = nome_file.replace(".pdf", "_ruotato.pdf")
+                percorso_output = f"{cartella_output}/{nome_output}"
+                rotate_pdf(percorso_file, angolo, percorso_output)
+
+            file_selezionati.clear()
+            aggiorna_lista_visiva()
+            messagebox.showinfo("Completato", "PDF ruotati con successo!")
+        except Exception as errore:
+            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
     else:
         messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
@@ -199,7 +222,7 @@ def aggiorna_qualita_e_label(valore, label):
     label.configure(text=f"Qualità compressione: {valore_qualita}")
 
 def avvia_gui():
-    global frame_lista   # diciamo a Python: non creare una variabile locale, usa quella globale
+    global frame_lista, angolo_scelto # entrmabe vanno dichiarate global
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
@@ -207,6 +230,11 @@ def avvia_gui():
     app = ctk.CTk()
     app.title("PDForge")
     app.geometry("600x400")
+
+    # Ora che la finestra esiste, possiamo creare la StringVar
+    angolo_scelto = ctk.StringVar(value="90")
+
+    # Pulsanti per le operazioni principali
 
     titolo = ctk.CTkLabel(app, text="Scegli un'operazione", font=("Arial", 16))
     titolo.grid(row=0, column=0, columnspan=2, pady=(20, 10))
@@ -237,15 +265,26 @@ def avvia_gui():
     slider_qualita.set(50)
     slider_qualita.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky="ew", padx=20)
 
+    # Etichetta e menu a tendina per la scelta dell'angolo di rotazione
+    label_angolo = ctk.CTkLabel(app, text="Angolo di rotazione:")
+    label_angolo.grid(row=5, column=0, pady=(10, 0), sticky="e")
+
+    menu_angolo = ctk.CTkOptionMenu(
+        app,
+        values=["90", "180", "270"],
+        variable=angolo_scelto
+    )
+    menu_angolo.grid(row=5, column=1, pady=(10, 0), sticky="w")
+
 
     frame_lista = ctk.CTkScrollableFrame(app, height=100)
-    frame_lista.grid(row=5, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
+    frame_lista.grid(row=6, column=0, columnspan=2, padx=10, pady=(20, 10), sticky="nsew")
 
     label_placeholder = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
     label_placeholder.pack(anchor="w", padx=10, pady=(10, 10))
 
     frame_azioni = ctk.CTkFrame(app, fg_color="transparent")
-    frame_azioni.grid(row=6, column=0, columnspan=2, pady=20)
+    frame_azioni.grid(row=7, column=0, columnspan=2, pady=20)
 
     btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
     btn_aggiungi.pack(side="left", padx=10)
