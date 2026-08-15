@@ -1,6 +1,6 @@
 # 📄 PDForge
 
-**PDForge** è un'applicazione desktop con interfaccia grafica per la gestione rapida dei file PDF: unione, separazione, compressione e altre utilità, il tutto in un'unica app leggera e semplice da usare.
+**PDForge** è un'applicazione per la gestione rapida dei file PDF: unione, separazione, compressione e altre utilità, il tutto in un'unica app leggera e semplice da usare.
 Il progetto nasce anche come percorso di apprendimento di Python.
 
 👤 **Autore:** Fabio Di Terlizzi ([@biets](https://github.com/biets))
@@ -9,7 +9,7 @@ Il progetto nasce anche come percorso di apprendimento di Python.
 
 ---
 
-## Funzionalità
+## ✨ Funzionalità
 
 - ✅ **Unione PDF** — combina più file PDF in un unico documento
 - 🔧 **Separazione PDF** — estrae singole pagine o intervalli da un PDF (in fase di integrazione GUI)

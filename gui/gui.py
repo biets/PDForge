@@ -1,12 +1,19 @@
+import webbrowser
+
 import customtkinter as ctk
 from tkinter import filedialog, messagebox  # messagebox per avvisi ed errori
 from pypdf import PdfReader
+from PIL import Image  # per la compressione delle immagini nei PDF
 
 file_selezionati = []
 operazione_scelta = None
 valore_qualita = 50  # valore di default della compressione
 frame_controlli_qualita = None
 frame_controlli_angolo = None
+btn_unisci, btn_separa, btn_comprimi, btn_ruota = None, None, None, None
+
+icone_bianche = {}  # dizionario: nome operazione -> CTkImage bianca
+icone_nere = {}     # dizionario: nome operazione -> CTkImage nera
 
 # Variabile per tenere traccia dell'angolo scelto (default 90°)
 angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la creazione della finestra
@@ -14,12 +21,16 @@ angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la
 def azione_unisci():
     global operazione_scelta
     operazione_scelta = "unisci"
+    reset_color_btn()
+    evidenzia_bottone(btn_unisci, "unisci")
     nascondi_controlli_extra()
     print("Operazione selezionata: Unisci PDF")
 
 def azione_separa():
     global operazione_scelta
     operazione_scelta = "separa"
+    reset_color_btn()
+    evidenzia_bottone(btn_separa, "separa")
     nascondi_controlli_extra()
     print("Operazione selezionata: Separa PDF")
 
@@ -27,6 +38,8 @@ def azione_comprimi():
     global operazione_scelta
     operazione_scelta = "comprimi"
     nascondi_controlli_extra()
+    reset_color_btn()
+    evidenzia_bottone(btn_comprimi, "comprimi")
     frame_controlli_qualita.pack(pady=(20, 15), padx=20, fill="x")
     print("Operazione selezionata: Comprimi PDF")
 
@@ -34,6 +47,8 @@ def azione_ruota():
     global operazione_scelta
     operazione_scelta = "ruota"
     nascondi_controlli_extra()
+    reset_color_btn()
+    evidenzia_bottone(btn_ruota, "ruota")
     frame_controlli_angolo.pack(pady=(20, 20), padx=20)
     print("Operazione selezionata: Ruota pagine")
 
@@ -42,7 +57,48 @@ def nascondi_controlli_extra():
     frame_controlli_qualita.pack_forget()
     frame_controlli_angolo.pack_forget()
 
+def reset_color_btn():
+    """Riporta tutti i bottoni allo stato non selezionato."""
+    coppie = [
+        (btn_unisci, "unisci"),
+        (btn_separa, "separa"),
+        (btn_comprimi, "comprimi"),
+        (btn_ruota, "ruota")
+    ]
+    for bottone, nome in coppie:
+        bottone.configure(
+            fg_color="transparent",
+            text_color="white",
+            hover_color="#444444",
+            image=icone_bianche[nome]
+        )
 
+def evidenzia_bottone(bottone, nome_operazione):
+    """Applica lo stato 'selezionato' a un bottone: sfondo pieno e icona scura."""
+    bottone.configure(
+        fg_color="white",
+        text_color="#1a1a1a",
+        hover_color="#e0e0e0",
+        image=icone_nere[nome_operazione]
+    )
+
+def carica_icona_bicolore(percorso, dimensione=20):
+    """
+    Restituisce due CTkImage della stessa icona: una bianca e una nera.
+    Serve perché i PNG hanno il colore fisso nei pixel: per cambiarlo
+    non basta configurare il bottone, bisogna sostituire l'immagine.
+    """
+    originale = Image.open(percorso).convert("RGBA").resize((dimensione, dimensione))
+    maschera = originale.getchannel("A")  # la "sagoma" dell'icona
+
+    def tingi(colore_rgb):
+        colorata = Image.new("RGBA", originale.size, colore_rgb + (255,))
+        colorata.putalpha(maschera)
+        return ctk.CTkImage(light_image=colorata, dark_image=colorata, size=(dimensione, dimensione))
+
+    bianca = tingi((255, 255, 255))
+    nera = tingi((26, 26, 26))  # non nero puro: si abbina meglio al testo #1a1a1a
+    return bianca, nera
 
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
 from core.split_pdf import split_pdf
@@ -196,7 +252,6 @@ def esegui():
     else:
         messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
-
 def aggiungi_file():
     # filedialog.askopenfilenames() apre la finestra di sistema
     # filetypes limita la scelta ai soli PDF
@@ -258,13 +313,15 @@ def aggiorna_qualita_e_label(valore, label):
 
 def avvia_gui():
     global frame_lista, angolo_scelto, frame_controlli_qualita, frame_controlli_angolo
+    global btn_unisci, btn_separa, btn_comprimi, btn_ruota
+    global icone_bianche, icone_nere
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
     app = ctk.CTk()
     app.title("PDForge")
-    app.geometry("750x450")
+    app.geometry("750x470")
 
     angolo_scelto = ctk.StringVar(value="90")
 
@@ -274,6 +331,13 @@ def avvia_gui():
     app.grid_rowconfigure(0, weight=1)  # riga del contenuto si espande in verticale
     app.grid_rowconfigure(1, weight=0)  # riga del footer resta fissa
 
+    # Icone
+    for nome, file_icona in [("unisci", "merge.png"), ("separa", "split.png"),
+                             ("comprimi", "compress.png"), ("ruota", "rotate.png")]:
+        bianca, nera = carica_icona_bicolore(f"assets/icons/{file_icona}")
+        icone_bianche[nome] = bianca
+        icone_nere[nome] = nera
+    
     # ------------------- SIDEBAR -------------------
     sidebar_frame = ctk.CTkFrame(app, width=220, corner_radius=0)
     sidebar_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 5), pady=0)
@@ -284,16 +348,16 @@ def avvia_gui():
     sottotitolo = ctk.CTkLabel(sidebar_frame, text="Scegli un'operazione", text_color="gray")
     sottotitolo.pack(pady=(0, 15), padx=20)
 
-    btn_unisci = ctk.CTkButton(sidebar_frame, text="Unisci PDF", command=azione_unisci, width=180, height=45)
+    btn_unisci = ctk.CTkButton(sidebar_frame, text="   Unisci PDF", compound="left", anchor="w", image=icone_bianche["unisci"], command=azione_unisci, width=180, height=45, fg_color="transparent", border_width=2, border_color="white", text_color="white", hover_color="#444444")
     btn_unisci.pack(pady=6, padx=20)
 
-    btn_separa = ctk.CTkButton(sidebar_frame, text="Separa PDF", command=azione_separa, width=180, height=45)
+    btn_separa = ctk.CTkButton(sidebar_frame, text="   Separa PDF", compound="left", anchor="w", image=icone_bianche["separa"], command=azione_separa, width=180, height=45, fg_color="transparent", border_width=2, border_color="white", text_color="white", hover_color="#444444")
     btn_separa.pack(pady=6, padx=20)
 
-    btn_comprimi = ctk.CTkButton(sidebar_frame, text="Comprimi PDF", command=azione_comprimi, width=180, height=45)
+    btn_comprimi = ctk.CTkButton(sidebar_frame, text="   Comprimi PDF", compound="left", anchor="w", image=icone_bianche["comprimi"], command=azione_comprimi, width=180, height=45, fg_color="transparent", border_width=2, border_color="white", text_color="white", hover_color="#444444")
     btn_comprimi.pack(pady=6, padx=20)
 
-    btn_ruota = ctk.CTkButton(sidebar_frame, text="Ruota pagine", command=azione_ruota, width=180, height=45)
+    btn_ruota = ctk.CTkButton(sidebar_frame, text="  Ruota pagine", compound="left", anchor="w", image=icone_bianche["ruota"], command=azione_ruota, width=180, height=45, fg_color="transparent", border_width=2, border_color="white", text_color="white", hover_color="#444444")
     btn_ruota.pack(pady=6, padx=20)
 
     # Blocco controlli qualità compressione (nascosto finché non scegli "Comprimi PDF")
@@ -349,8 +413,46 @@ def avvia_gui():
 
     # ------------------- FOOTER -------------------
     footer = ctk.CTkFrame(app, height=30, fg_color="transparent")
-    footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
-    # Il contenuto vero del footer lo aggiungiamo nello step 4
+    footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=15, pady=(0, 8))
+
+    label_autore = ctk.CTkLabel(
+        footer,
+        text="PDForge — Fabio Di Terlizzi",
+        font=("Arial", 11),
+        text_color="gray"
+    )
+    label_autore.pack(side="left")
+
+    # Email (sarà il più a destra)
+    label_email = ctk.CTkLabel(
+        footer,
+        text="fabio.diterlizzi@gmail.com",
+        font=("Arial", 11, "underline"),
+        text_color="#6b9dc2",
+        cursor="hand2"
+    )
+    label_email.pack(side="right")
+    label_email.bind("<Button-1>", lambda evento: webbrowser.open("mailto:fabio.diterlizzi@gmail.com"))
+
+    # Separatore tra i due link
+    label_separatore = ctk.CTkLabel(
+        footer,
+        text="•",
+        font=("Arial", 11),
+        text_color="gray"
+    )
+    label_separatore.pack(side="right", padx=8)
+
+    # GitHub (finirà alla sinistra del separatore)
+    label_github = ctk.CTkLabel(
+        footer,
+        text="GitHub",
+        font=("Arial", 11, "underline"),
+        text_color="#6b9dc2",
+        cursor="hand2"
+    )
+    label_github.pack(side="right")
+    label_github.bind("<Button-1>", lambda evento: webbrowser.open("https://github.com/biets/PDForge"))
 
     app.mainloop()
 
