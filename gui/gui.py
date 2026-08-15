@@ -322,6 +322,7 @@ def avvia_gui():
     app = ctk.CTk()
     app.title("PDForge")
     app.geometry("750x470")
+    app.iconbitmap("assets/icona_pdforge.ico")
 
     angolo_scelto = ctk.StringVar(value="90")
 

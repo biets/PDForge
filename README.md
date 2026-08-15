@@ -1,4 +1,8 @@
-# 📄 PDForge
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="Icona PDForge">
+</p>
+
+# PDForge
 
 **PDForge** è un'applicazione per la gestione rapida dei file PDF: unione, separazione, compressione e altre utilità, il tutto in un'unica app leggera e semplice da usare.
 Il progetto nasce anche come percorso di apprendimento di Python.
