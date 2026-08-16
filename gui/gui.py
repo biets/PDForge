@@ -4,6 +4,7 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox  # messagebox per avvisi ed errori
 from pypdf import PdfReader
 from PIL import Image  # per la compressione delle immagini nei PDF
+from customtkinter import CTkImage
 
 file_selezionati = []
 operazione_scelta = None
@@ -14,6 +15,7 @@ btn_unisci, btn_separa, btn_comprimi, btn_ruota = None, None, None, None
 
 icone_bianche = {}  # dizionario: nome operazione -> CTkImage bianca
 icone_nere = {}     # dizionario: nome operazione -> CTkImage nera
+icona_rimuovi = None
 
 # Variabile per tenere traccia dell'angolo scelto (default 90°)
 angolo_scelto = None  # verrà creata come StringVar dentro avvia_gui(), dopo la creazione della finestra
@@ -99,6 +101,15 @@ def carica_icona_bicolore(percorso, dimensione=20):
     bianca = tingi((255, 255, 255))
     nera = tingi((26, 26, 26))  # non nero puro: si abbina meglio al testo #1a1a1a
     return bianca, nera
+
+def carica_icona_singola(percorso, colore_rgb, dimensione=14):
+    """Carica un'icona PNG e la tinge di un unico colore (RGB)."""
+    originale = Image.open(percorso).convert("RGBA").resize((dimensione, dimensione))
+    maschera = originale.getchannel("A")
+    colorata = Image.new("RGBA", originale.size, colore_rgb + (255,))
+    colorata.putalpha(maschera)
+    return ctk.CTkImage(light_image=colorata, dark_image=colorata, size=(dimensione, dimensione))
+
 
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
 from core.split_pdf import split_pdf
@@ -268,6 +279,11 @@ def aggiungi_file():
     
     aggiorna_lista_visiva()
 
+def rimuovi_file(percorso):
+    """Rimuove un singolo file dalla lista e aggiorna la GUI."""
+    file_selezionati.remove(percorso)
+    aggiorna_lista_visiva()
+
 def aggiorna_lista_visiva():
     # Puliamo il frame prima di ridisegnare (altrimenti si accumulano le label vecchie)
     for widget in frame_lista.winfo_children():
@@ -278,10 +294,25 @@ def aggiorna_lista_visiva():
         label.pack(anchor="w", padx=10, pady=(10, 10))
     else:
         for percorso in file_selezionati:
-            # Mostriamo solo il nome del file, non tutto il percorso completo
+            # Ogni riga è un frame a sé: ci serve per affiancare label e bottone
+            riga = ctk.CTkFrame(frame_lista, fg_color="transparent")
+            riga.pack(fill="x", padx=10, pady=2)
+
             nome_file = percorso.split("/")[-1]
-            label = ctk.CTkLabel(frame_lista, text=nome_file)
-            label.pack(anchor="w", padx=10, pady=2)
+            label = ctk.CTkLabel(riga, text=nome_file)
+            label.pack(side="left", anchor="w")
+
+            btn_rimuovi = ctk.CTkButton(
+                riga,
+                text="",
+                image=icona_rimuovi,
+                width=24,
+                height=24,
+                fg_color="transparent",
+                hover_color="#5a1a1a",
+                command=lambda p=percorso: rimuovi_file(p)
+            )
+            btn_rimuovi.pack(side="right", padx=(0, 5))
 
 def analizza_pagine(testo, totale_pagine):
     """Converte una stringa tipo '1,3,5-7' in una lista ordinata di numeri di pagina, senza duplicati."""
@@ -314,15 +345,15 @@ def aggiorna_qualita_e_label(valore, label):
 def avvia_gui():
     global frame_lista, angolo_scelto, frame_controlli_qualita, frame_controlli_angolo
     global btn_unisci, btn_separa, btn_comprimi, btn_ruota
-    global icone_bianche, icone_nere
+    global icone_bianche, icone_nere, icona_rimuovi
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
     app = ctk.CTk()
     app.title("PDForge")
-    app.geometry("750x470")
     app.iconbitmap("assets/icona_pdforge.ico")
+    app.geometry("750x470")
 
     angolo_scelto = ctk.StringVar(value="90")
 
@@ -338,13 +369,26 @@ def avvia_gui():
         bianca, nera = carica_icona_bicolore(f"assets/icons/{file_icona}")
         icone_bianche[nome] = bianca
         icone_nere[nome] = nera
+
+    icona_rimuovi = carica_icona_singola("assets/icons/remove.png", (170, 170, 170))
     
     # ------------------- SIDEBAR -------------------
     sidebar_frame = ctk.CTkFrame(app, width=220, corner_radius=0)
     sidebar_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 5), pady=0)
 
-    titolo = ctk.CTkLabel(sidebar_frame, text="PDForge", font=("Arial", 20, "bold"))
-    titolo.pack(pady=(20, 5), padx=20)
+    # Icona caricata come CTkImage: gestisce automaticamente schermi a diversa densità di pixel
+    icona_app = CTkImage(light_image=Image.open("assets/icona_pdforge_256.png"),
+                          dark_image=Image.open("assets/icona_pdforge_256.png"),
+                          size=(32, 32))
+
+    frame_titolo = ctk.CTkFrame(sidebar_frame, fg_color="transparent")
+    frame_titolo.pack(pady=(20, 5), padx=20)
+
+    icona_titolo = ctk.CTkLabel(frame_titolo, image=icona_app, text="")
+    icona_titolo.pack(side="left", padx=(0, 8))
+
+    testo_titolo = ctk.CTkLabel(frame_titolo, text="PDForge", font=("Arial", 20, "bold"))
+    testo_titolo.pack(side="left")
 
     sottotitolo = ctk.CTkLabel(sidebar_frame, text="Scegli un'operazione", text_color="gray")
     sottotitolo.pack(pady=(0, 15), padx=20)
