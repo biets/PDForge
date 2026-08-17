@@ -1,5 +1,5 @@
 import webbrowser
-
+import threading
 import customtkinter as ctk
 from tkinter import filedialog, messagebox  # messagebox per avvisi ed errori
 from pypdf import PdfReader
@@ -12,7 +12,10 @@ valore_qualita = 50  # valore di default della compressione
 frame_controlli_qualita = None
 frame_controlli_angolo = None
 btn_unisci, btn_separa, btn_comprimi, btn_ruota = None, None, None, None
-
+app = None
+progress_bar = None
+btn_esegui = None
+btn_aggiungi = None
 icone_bianche = {}  # dizionario: nome operazione -> CTkImage bianca
 icone_nere = {}     # dizionario: nome operazione -> CTkImage nera
 icona_rimuovi = None
@@ -110,6 +113,63 @@ def carica_icona_singola(percorso, colore_rgb, dimensione=14):
     colorata.putalpha(maschera)
     return ctk.CTkImage(light_image=colorata, dark_image=colorata, size=(dimensione, dimensione))
 
+def mostra_progresso():
+    progress_bar.grid(row=3, column=0, sticky="ew", padx=10, pady=(10, 0))
+    progress_bar.start()
+    btn_esegui.configure(state="disabled")
+    btn_aggiungi.configure(state="disabled")
+
+def nascondi_progresso():
+    progress_bar.stop()
+    progress_bar.grid_forget()
+    btn_esegui.configure(state="normal")
+    btn_aggiungi.configure(state="normal")
+
+def esegui_in_background(funzione, callback_successo, *args, **kwargs):
+    """
+    Esegue 'funzione' (una delle operazioni di core/) su un thread separato,
+    per non bloccare la GUI. Al termine, richiama callback_successo sul thread
+    principale tramite app.after().
+    """
+    def lavoro():
+        try:
+            funzione(*args, **kwargs)
+            app.after(0, lambda: (nascondi_progresso(), callback_successo()))
+        except Exception as errore:
+            app.after(0, lambda: (nascondi_progresso(), messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")))
+
+    mostra_progresso()
+    threading.Thread(target=lavoro, daemon=True).start()
+
+def mostra_progresso():
+    """Mostra la barra di progresso indeterminata e blocca i pulsanti durante l'operazione."""
+    progress_bar.grid(row=3, column=0, sticky="ew", padx=10, pady=(10, 0))
+    progress_bar.start()
+    btn_esegui.configure(state="disabled")
+    btn_aggiungi.configure(state="disabled")
+
+def nascondi_progresso():
+    """Nasconde la barra di progresso e riabilita i pulsanti."""
+    progress_bar.stop()
+    progress_bar.grid_forget()
+    btn_esegui.configure(state="normal")
+    btn_aggiungi.configure(state="normal")
+
+def esegui_in_background(funzione, callback_successo, *args, **kwargs):
+    """
+    Esegue 'funzione' (una delle operazioni di core/) su un thread separato,
+    per non bloccare la GUI. Al termine, richiama callback_successo sul thread
+    principale tramite app.after().
+    """
+    def lavoro():
+        try:
+            funzione(*args, **kwargs)
+            app.after(0, lambda: (nascondi_progresso(), callback_successo()))
+        except Exception as errore:
+            app.after(0, lambda: (nascondi_progresso(), messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")))
+
+    mostra_progresso()
+    threading.Thread(target=lavoro, daemon=True).start()
 
 from core.merge_pdf import merge_pdf # importiamo le funzioni core che implementano le operazioni sui PDF
 from core.split_pdf import split_pdf
@@ -118,7 +178,6 @@ from core.rotate_pdf import rotate_pdf
 from tkinter import filedialog, messagebox, simpledialog  # aggiungiamo simpledialog
 
 def esegui():
-    # Controlli di sicurezza prima di agire
     if operazione_scelta is None:
         messagebox.showwarning("Attenzione", "Seleziona prima un'operazione")
         return
@@ -128,28 +187,22 @@ def esegui():
         return
 
     if operazione_scelta == "unisci":
-            # Chiediamo dove salvare il PDF risultante
-            percorso_output = filedialog.asksaveasfilename(
-                title="Salva PDF unito come",
-                defaultextension=".pdf",
-                filetypes=[("File PDF", "*.pdf")]
-            )
+        percorso_output = filedialog.asksaveasfilename(
+            title="Salva PDF unito come",
+            defaultextension=".pdf",
+            filetypes=[("File PDF", "*.pdf")]
+        )
+        if percorso_output == "":
+            return
 
-            # Se l'utente chiude la finestra senza scegliere, percorso_output è una stringa vuota
-            if percorso_output == "":
-                return
+        def al_termine():
+            file_selezionati.clear()
+            aggiorna_lista_visiva()
+            messagebox.showinfo("Completato", "PDF uniti con successo!")
 
-            # try/except: se qualcosa va storto (file corrotto, permessi, ecc.)
-            # non vogliamo che il programma crashi, ma mostrare un errore gestito
-            try:
-                merge_pdf(file_selezionati, percorso_output)
-                file_selezionati.clear()       # svuotiamo la lista dopo un merge riuscito
-                aggiorna_lista_visiva()        # aggiorniamo la GUI per riflettere la lista vuota
-                messagebox.showinfo("Completato", "PDF uniti con successo!")
-            except Exception as errore:
-                messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+        esegui_in_background(merge_pdf, al_termine, file_selezionati.copy(), percorso_output)
 
-    elif operazione_scelta == "separa":   
+    elif operazione_scelta == "separa":
         if len(file_selezionati) > 1:
             messagebox.showwarning("Attenzione", "Per separare, seleziona un solo file PDF")
             return
@@ -157,68 +210,59 @@ def esegui():
         percorso_file = file_selezionati[0]
         totale_pagine = len(PdfReader(percorso_file).pages)
 
-        # Chiediamo quali pagine estrarre (vuoto = tutte)
         testo_pagine = simpledialog.askstring(
             "Seleziona pagine",
             f"Il documento ha {totale_pagine} pagine.\nInserisci le pagine (es. 1,3,5-7) oppure lascia vuoto per tutte:"
         )
-
-        # Se l'utente annulla il dialog, askstring ritorna None
         if testo_pagine is None:
             return
 
         try:
-            if testo_pagine.strip() == "":
-                pagine = None  # nessun filtro, tutte le pagine
-            else:
-                pagine = analizza_pagine(testo_pagine, totale_pagine)
+            pagine = None if testo_pagine.strip() == "" else analizza_pagine(testo_pagine, totale_pagine)
+        except ValueError as errore:
+            messagebox.showerror("Errore", str(errore))
+            return
 
-            # Chiediamo la modalità solo se l'utente ha scelto pagine specifiche
-            modalita = "separato"
-            if pagine is not None:
-                un_file_solo = messagebox.askyesno(
-                    "Modalità",
-                    "Vuoi un unico file con le pagine selezionate?\n\nSì = un solo PDF\nNo = un file per ogni pagina"
-                )
-                modalita = "singolo" if un_file_solo else "separato"
+        modalita = "separato"
+        if pagine is not None:
+            un_file_solo = messagebox.askyesno(
+                "Modalità",
+                "Vuoi un unico file con le pagine selezionate?\n\nSì = un solo PDF\nNo = un file per ogni pagina"
+            )
+            modalita = "singolo" if un_file_solo else "separato"
 
-            cartella_output = filedialog.askdirectory(title="Scegli la cartella dove salvare")
-            if cartella_output == "":
-                return
+        cartella_output = filedialog.askdirectory(title="Scegli la cartella dove salvare")
+        if cartella_output == "":
+            return
 
-            split_pdf(percorso_file, cartella_output, pagine=pagine, modalita=modalita)
+        def al_termine():
             file_selezionati.clear()
             aggiorna_lista_visiva()
             messagebox.showinfo("Completato", "PDF separato con successo!")
 
-        except ValueError as errore:
-            messagebox.showerror("Errore", str(errore))
-        except Exception as errore:
-            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+        esegui_in_background(split_pdf, al_termine, percorso_file, cartella_output, pagine=pagine, modalita=modalita)
+
     elif operazione_scelta == "comprimi":
         if len(file_selezionati) > 1:
             messagebox.showwarning("Attenzione", "Per comprimere, seleziona un solo file PDF")
             return
 
         percorso_file = file_selezionati[0]
-
-        # Chiediamo dove salvare il PDF compresso
         percorso_output = filedialog.asksaveasfilename(
             title="Salva PDF compresso come",
             defaultextension=".pdf",
             filetypes=[("File PDF", "*.pdf")]
         )
-
         if percorso_output == "":
             return
 
-        try:
-            compress_pdf(percorso_file, percorso_output, qualita=valore_qualita)
+        def al_termine():
             file_selezionati.clear()
             aggiorna_lista_visiva()
             messagebox.showinfo("Completato", "PDF compresso con successo!")
-        except Exception as errore:
-            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+
+        esegui_in_background(compress_pdf, al_termine, percorso_file, percorso_output, qualita=valore_qualita)
+
     elif operazione_scelta == "ruota":
         if len(file_selezionati) > 1:
             messagebox.showwarning("Attenzione", "Per ruotare, seleziona un solo file PDF")
@@ -228,38 +272,34 @@ def esegui():
         angolo = int(angolo_scelto.get())
         totale_pagine = len(PdfReader(percorso_file).pages)
 
-        # Chiediamo quali pagine ruotare (vuoto = tutte)
         testo_pagine = simpledialog.askstring(
             "Seleziona pagine",
             f"Il documento ha {totale_pagine} pagine.\nInserisci le pagine da ruotare (es. 1,3,5-7) oppure lascia vuoto per tutte:"
         )
-
         if testo_pagine is None:
             return
 
         try:
-            if testo_pagine.strip() == "":
-                pagine = None
-            else:
-                pagine = analizza_pagine(testo_pagine, totale_pagine)
+            pagine = None if testo_pagine.strip() == "" else analizza_pagine(testo_pagine, totale_pagine)
+        except ValueError as errore:
+            messagebox.showerror("Errore", str(errore))
+            return
 
-            percorso_output = filedialog.asksaveasfilename(
-                title="Salva PDF ruotato come",
-                defaultextension=".pdf",
-                filetypes=[("File PDF", "*.pdf")]
-            )
-            if percorso_output == "":
-                return
+        percorso_output = filedialog.asksaveasfilename(
+            title="Salva PDF ruotato come",
+            defaultextension=".pdf",
+            filetypes=[("File PDF", "*.pdf")]
+        )
+        if percorso_output == "":
+            return
 
-            rotate_pdf(percorso_file, angolo, percorso_output, pagine=pagine)
+        def al_termine():
             file_selezionati.clear()
             aggiorna_lista_visiva()
             messagebox.showinfo("Completato", "PDF ruotato con successo!")
 
-        except ValueError as errore:
-            messagebox.showerror("Errore", str(errore))
-        except Exception as errore:
-            messagebox.showerror("Errore", f"Qualcosa è andato storto:\n{errore}")
+        esegui_in_background(rotate_pdf, al_termine, percorso_file, angolo, percorso_output, pagine=pagine)
+
     else:
         messagebox.showinfo("In arrivo", "Questa operazione non è ancora collegata")
 
@@ -284,6 +324,21 @@ def rimuovi_file(percorso):
     file_selezionati.remove(percorso)
     aggiorna_lista_visiva()
 
+# Funzioni per spostare i file su/giù nella lista
+def sposta_su(percorso):
+    """Scambia il file con quello sopra di lui nella lista."""
+    indice = file_selezionati.index(percorso)
+    if indice > 0:
+        file_selezionati[indice], file_selezionati[indice - 1] = file_selezionati[indice - 1], file_selezionati[indice]
+        aggiorna_lista_visiva()
+
+def sposta_giu(percorso):
+    """Scambia il file con quello sotto di lui nella lista."""
+    indice = file_selezionati.index(percorso)
+    if indice < len(file_selezionati) - 1:
+        file_selezionati[indice], file_selezionati[indice + 1] = file_selezionati[indice + 1], file_selezionati[indice]
+        aggiorna_lista_visiva()
+
 def aggiorna_lista_visiva():
     # Puliamo il frame prima di ridisegnare (altrimenti si accumulano le label vecchie)
     for widget in frame_lista.winfo_children():
@@ -293,8 +348,8 @@ def aggiorna_lista_visiva():
         label = ctk.CTkLabel(frame_lista, text="Nessun file selezionato", text_color="gray")
         label.pack(anchor="w", padx=10, pady=(10, 10))
     else:
-        for percorso in file_selezionati:
-            # Ogni riga è un frame a sé: ci serve per affiancare label e bottone
+        totale = len(file_selezionati)
+        for indice, percorso in enumerate(file_selezionati):
             riga = ctk.CTkFrame(frame_lista, fg_color="transparent")
             riga.pack(fill="x", padx=10, pady=2)
 
@@ -303,16 +358,27 @@ def aggiorna_lista_visiva():
             label.pack(side="left", anchor="w")
 
             btn_rimuovi = ctk.CTkButton(
-                riga,
-                text="",
-                image=icona_rimuovi,
-                width=24,
-                height=24,
-                fg_color="transparent",
-                hover_color="#5a1a1a",
+                riga, text="", image=icona_rimuovi, width=24, height=24,
+                fg_color="transparent", hover_color="#5a1a1a",
                 command=lambda p=percorso: rimuovi_file(p)
             )
             btn_rimuovi.pack(side="right", padx=(0, 5))
+
+            btn_giu = ctk.CTkButton(
+                riga, text="▼", width=24, height=24,
+                fg_color="transparent", hover_color="#444444", text_color="gray",
+                state="normal" if indice < totale - 1 else "disabled",
+                command=lambda p=percorso: sposta_giu(p)
+            )
+            btn_giu.pack(side="right", padx=(0, 2))
+
+            btn_su = ctk.CTkButton(
+                riga, text="▲", width=24, height=24,
+                fg_color="transparent", hover_color="#444444", text_color="gray",
+                state="normal" if indice > 0 else "disabled",
+                command=lambda p=percorso: sposta_su(p)
+            )
+            btn_su.pack(side="right", padx=(0, 2))
 
 def analizza_pagine(testo, totale_pagine):
     """Converte una stringa tipo '1,3,5-7' in una lista ordinata di numeri di pagina, senza duplicati."""
@@ -343,8 +409,8 @@ def aggiorna_qualita_e_label(valore, label):
     label.configure(text=f"Qualità compressione: {valore_qualita}")
 
 def avvia_gui():
-    global frame_lista, angolo_scelto, frame_controlli_qualita, frame_controlli_angolo
-    global btn_unisci, btn_separa, btn_comprimi, btn_ruota
+    global frame_lista, angolo_scelto, frame_controlli_qualita, frame_controlli_angolo, app, progress_bar, btn_esegui, btn_aggiungi
+    global app, progress_bar, btn_unisci, btn_separa, btn_comprimi, btn_ruota
     global icone_bianche, icone_nere, icona_rimuovi
 
     ctk.set_appearance_mode("dark")
@@ -377,8 +443,8 @@ def avvia_gui():
     sidebar_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 5), pady=0)
 
     # Icona caricata come CTkImage: gestisce automaticamente schermi a diversa densità di pixel
-    icona_app = CTkImage(light_image=Image.open("assets/icona_pdforge_256.png"),
-                          dark_image=Image.open("assets/icona_pdforge_256.png"),
+    icona_app = CTkImage(light_image=Image.open("assets/logo.png"),
+                          dark_image=Image.open("assets/logo.png"),
                           size=(32, 32))
 
     frame_titolo = ctk.CTkFrame(sidebar_frame, fg_color="transparent")
@@ -449,6 +515,9 @@ def avvia_gui():
 
     frame_azioni = ctk.CTkFrame(main_frame, fg_color="transparent")
     frame_azioni.grid(row=2, column=0, pady=(15, 0))
+
+    progress_bar = ctk.CTkProgressBar(main_frame, mode="indeterminate")
+    # non richiamiamo .pack() qui: comparirà solo durante un'operazione, vedi mostra_progresso()
 
     btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
     btn_aggiungi.pack(side="left", padx=10)
