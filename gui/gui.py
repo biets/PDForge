@@ -29,6 +29,7 @@ def azione_unisci():
     reset_color_btn()
     evidenzia_bottone(btn_unisci, "unisci")
     nascondi_controlli_extra()
+    aggiorna_stato_esegui()
     print("Operazione selezionata: Unisci PDF")
 
 def azione_separa():
@@ -37,12 +38,14 @@ def azione_separa():
     reset_color_btn()
     evidenzia_bottone(btn_separa, "separa")
     nascondi_controlli_extra()
+    aggiorna_stato_esegui()
     print("Operazione selezionata: Separa PDF")
 
 def azione_comprimi():
     global operazione_scelta
     operazione_scelta = "comprimi"
     nascondi_controlli_extra()
+    aggiorna_stato_esegui()
     reset_color_btn()
     evidenzia_bottone(btn_comprimi, "comprimi")
     frame_controlli_qualita.pack(pady=(20, 15), padx=20, fill="x")
@@ -52,6 +55,7 @@ def azione_ruota():
     global operazione_scelta
     operazione_scelta = "ruota"
     nascondi_controlli_extra()
+    aggiorna_stato_esegui()
     reset_color_btn()
     evidenzia_bottone(btn_ruota, "ruota")
     frame_controlli_angolo.pack(pady=(20, 20), padx=20)
@@ -77,6 +81,13 @@ def reset_color_btn():
             hover_color="#444444",
             image=icone_bianche[nome]
         )
+
+def aggiorna_stato_esegui():
+    """Abilita il pulsante Esegui solo se è stata scelta un'operazione E c'è almeno un file."""
+    if operazione_scelta is not None and len(file_selezionati) > 0:
+        btn_esegui.configure(state="normal")
+    else:
+        btn_esegui.configure(state="disabled")
 
 def evidenzia_bottone(bottone, nome_operazione):
     """Applica lo stato 'selezionato' a un bottone: sfondo pieno e icona scura."""
@@ -379,6 +390,7 @@ def aggiorna_lista_visiva():
                 command=lambda p=percorso: sposta_su(p)
             )
             btn_su.pack(side="right", padx=(0, 2))
+    aggiorna_stato_esegui()
 
 def analizza_pagine(testo, totale_pagine):
     """Converte una stringa tipo '1,3,5-7' in una lista ordinata di numeri di pagina, senza duplicati."""
@@ -522,7 +534,7 @@ def avvia_gui():
     btn_aggiungi = ctk.CTkButton(frame_azioni, text="Aggiungi file", width=150, command=aggiungi_file)
     btn_aggiungi.pack(side="left", padx=10)
 
-    btn_esegui = ctk.CTkButton(frame_azioni, text="Esegui", width=150, command=esegui)
+    btn_esegui = ctk.CTkButton(frame_azioni, text="Esegui", width=150, command=esegui, state="disabled")
     btn_esegui.pack(side="left", padx=10)
 
     # ------------------- FOOTER -------------------
